@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>석식 확인 시스템 (사운드 추가)</title>
+    <title>석식 확인 시스템 (사운드 강화형)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
@@ -22,9 +22,7 @@
         .admin-btn { width: 100%; padding: 12px; background: #2c3e50; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
     </style>
 </head>
-<body>
-
-    <div class="container">
+<body onclick="initAudio()"> <div class="container">
         <button class="settings-btn" onclick="openAdmin()">⚙️</button>
         <div class="count-info">급식 배식 남은 학생 수 : <span id="remainingCount">0</span></div>
         <h1>석식 확인 시스템</h1>
@@ -50,32 +48,44 @@
 
     <script>
         let studentList = new Set();
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let audioCtx = null;
 
-        // --- 소리 생성 함수 ---
+        // 오디오 초기화 함수 (사용자 클릭 시 실행)
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // --- 소리 생성 로직 ---
         function playSound(type) {
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
+            initAudio(); // 소리 재생 전 상태 확인
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
 
             if (type === 'success') {
-                // 딩동댕 느낌 (높은 주파수에서 더 높은 주파수로 살짝 변함)
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime); // 도(C5)
-                oscillator.frequency.exponentialRampToValueAtTime(880.00, audioCtx.currentTime + 0.1); // 라(A5)
+                // 딩-동 소리 (두 번 울림)
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // 도
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.3); // 미
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
             } else {
-                // 삐- (낮은 주파수, 약간 거친 소리)
-                oscillator.type = 'square';
-                oscillator.frequency.setValueAtTime(150.00, audioCtx.currentTime); 
+                // 삐- 소리 (낮고 거친 소리)
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
             }
 
-            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1); // 1초 동안 서서히 작아짐
-
-            oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 1); // 1초 후 정지
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1); // 1초간 재생
         }
 
         const inputField = document.getElementById('studentId');
@@ -87,30 +97,28 @@
                 const id = this.value.trim();
                 if (id === "") return;
                 
-                // 브라우저 보안 정책상 첫 입력 시 오디오 컨텍스트 활성화
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-
-                processCheck(id);
+                checkStudent(id);
                 this.value = '';
             }
         });
 
-        function processCheck(id) {
+        function checkStudent(id) {
             if (studentList.size === 0 && countDisplay.innerText === "0") {
                 resultDiv.innerText = "엑셀 명단을 먼저 등록하세요.";
+                resultDiv.className = "error";
                 return;
             }
 
             if (studentList.has(id)) {
-                resultDiv.innerText = "석식 신청한 학생입니다. (딩동댕)";
+                resultDiv.innerText = "석식 신청한 학생입니다.";
                 resultDiv.className = "success";
-                playSound('success'); // 성공 소리 재생
+                playSound('success'); // 성공 소리
                 studentList.delete(id);
                 updateCount();
             } else {
-                resultDiv.innerText = "석식 신청하지 않은 학생입니다. (삐-)";
+                resultDiv.innerText = "석식 신청하지 않은 학생입니다.";
                 resultDiv.className = "error";
-                playSound('error'); // 실패 소리 재생
+                playSound('error'); // 실패 소리
             }
         }
 
@@ -118,13 +126,14 @@
             countDisplay.innerText = studentList.size;
         }
 
+        // --- 관리자/엑셀 로직 ---
         function openAdmin() { document.getElementById('adminModal').style.display = 'flex'; }
         function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
         function checkPw() {
             if (document.getElementById('adminPw').value === "1234") {
                 document.getElementById('loginSection').style.display = 'none';
                 document.getElementById('uploadSection').style.display = 'block';
-            } else { alert("비밀번호가 틀렸습니다."); }
+            } else { alert("비밀번호 틀림"); }
         }
 
         document.getElementById('excelFile').addEventListener('change', function(e) {
@@ -137,7 +146,7 @@
                 studentList.clear();
                 rows.forEach(row => { if (row[0]) studentList.add(row[0].toString().trim()); });
                 updateCount();
-                alert(`총 ${studentList.size}명 등록 완료!`);
+                alert(`총 ${studentList.size}명 등록!`);
                 closeAdmin();
                 inputField.focus();
             };
