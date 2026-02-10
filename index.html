@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>석식 신청 확인 시스템</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* CSS: 디자인 담당 */
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f7f6;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 50px;
+            border-radius: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            width: 450px;
+            position: relative;
+        }
+        /* 우측 상단 톱니바퀴 설정 버튼 */
+        .settings-btn {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            font-size: 28px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: #aaa;
+            transition: color 0.3s;
+        }
+        .settings-btn:hover { color: #333; }
+
+        .count-info {
+            font-size: 1.3rem;
+            color: #555;
+            margin-bottom: 10px;
+        }
+        .count-info span {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        h1 { margin-bottom: 40px; color: #2c3e50; font-size: 2rem; }
+        
+        /* 학번 입력창 */
+        #studentId {
+            width: 90%;
+            padding: 18px;
+            font-size: 1.8rem;
+            border: 3px solid #eee;
+            border-radius: 15px;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        #studentId:focus { border-color: #007bff; }
+
+        /* 결과 메시지 영역 */
+        #result {
+            margin-top: 40px;
+            font-size: 1.6rem;
+            font-weight: 800;
+            min-height: 1.6em;
+        }
+        .success { color: #2ecc71; } /* 석식 신청자 (초록) */
+        .error { color: #e74c3c; }   /* 미신청자 (빨강) */
+
+        /* 관리자 설정 창(모달) */
+        #adminModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 320px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-content h2 { margin-top: 0; font-size: 1.2rem; margin-bottom: 20px; }
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .admin-btn {
+            width: 100%;
+            padding: 12px;
+            background: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .close-btn { background: #95a5a6; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <button class="settings-btn" onclick="openAdmin()">⚙️</button>
+
+        <div class="count-info">급식 배식 남은 학생 수 : <span id="remainingCount">0</span></div>
+        <h1>석식 확인 시스템</h1>
+        
+        <input type="text" id="studentId" placeholder="학번 입력 후 엔터" autofocus autocomplete="off">
+        
+        <div id="result"></div>
+    </div>
+
+    <div id="adminModal">
+        <div class="modal-content">
+            <div id="loginSection">
+                <h2>관리자 인증</h2>
+                <input type="password" id="adminPw" placeholder="비밀번호 입력 (1234)">
+                <button class="admin-btn" onclick="checkPw()">로그인</button>
+                <button class="admin-btn close-btn" onclick="closeAdmin()">취소</button>
+            </div>
+            <div id="uploadSection" style="display:none;">
+                <h2>명단 업로드</h2>
+                <p style="font-size: 0.9rem; color: #666;">엑셀 파일의 첫 번째 열(A열)에 학번을 넣어주세요.</p>
+                <input type="file" id="excelFile" accept=".xlsx, .xls">
+                <button class="admin-btn close-btn" onclick="closeAdmin()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* JavaScript: 기능 담당 */
+        let studentList = new Set(); // 석식 신청자 학번 저장소
+
+        const inputField = document.getElementById('studentId');
+        const resultDiv = document.getElementById('result');
+        const countDisplay = document.getElementById('remainingCount');
+
+        // 1. 엔터키 입력 이벤트
+        inputField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const id = this.value.trim();
+                if (id === "") return;
+
+                processCheck(id);
+                this.value = ''; // 다음 사람을 위해 입력창 자동 비우기
+            }
+        });
+
+        // 2. 신청 여부 확인 로직
+        function processCheck(id) {
+            if (studentList.size === 0 && countDisplay.innerText === "0") {
+                resultDiv.innerText = "먼저 엑셀 명단을 업로드하세요.";
+                resultDiv.className = "error";
+                return;
+            }
+
+            if (studentList.has(id)) {
+                // 신청자일 경우
+                resultDiv.innerText = "석식 신청한 학생입니다.";
+                resultDiv.className = "success";
+                studentList.delete(id); // 명단에서 제거 (남은 인원 감소)
+                updateCount();
+            } else {
+                // 신청자가 아닐 경우
+                resultDiv.innerText = "석식 신청하지 않은 학생입니다.";
+                resultDiv.className = "error";
+            }
+        }
+
+        // 3. 화면 인원수 업데이트
+        function updateCount() {
+            countDisplay.innerText = studentList.size;
+        }
+
+        // --- 관리자 설정 관련 ---
+        function openAdmin() {
+            document.getElementById('adminModal').style.display = 'flex';
+            document.getElementById('adminPw').value = '';
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('uploadSection').style.display = 'none';
+        }
+
+        function closeAdmin() {
+            document.getElementById('adminModal').style.display = 'none';
+        }
+
+        function checkPw() {
+            const pw = document.getElementById('adminPw').value;
+            if (pw === "1234") {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('uploadSection').style.display = 'block';
+            } else {
+                alert("비밀번호가 틀렸습니다.");
+            }
+        }
+
+        // 4. 엑셀 파일 읽기 (SheetJS 활용)
+        document.getElementById('excelFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                studentList.clear();
+                rows.forEach(row => {
+                    if (row[0]) { // A열에 데이터가 있는 경우만 추가
+                        studentList.add(row[0].toString().trim());
+                    }
+                });
+
+                updateCount();
+                alert(`총 ${studentList.size}명의 명단이 로드되었습니다.`);
+                closeAdmin();
+                inputField.focus(); // 업로드 후 바로 입력창으로 포커스 이동
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+</body>
+</html>
