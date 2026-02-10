@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>석식 확인 시스템 (사운드 강화형)</title>
+    <title>석식 확인 시스템 (보안 강화형)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
@@ -22,7 +22,9 @@
         .admin-btn { width: 100%; padding: 12px; background: #2c3e50; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
     </style>
 </head>
-<body onclick="initAudio()"> <div class="container">
+<body onclick="initAudio()">
+
+    <div class="container">
         <button class="settings-btn" onclick="openAdmin()">⚙️</button>
         <div class="count-info">급식 배식 남은 학생 수 : <span id="remainingCount">0</span></div>
         <h1>석식 확인 시스템</h1>
@@ -50,7 +52,6 @@
         let studentList = new Set();
         let audioCtx = null;
 
-        // 오디오 초기화 함수 (사용자 클릭 시 실행)
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -60,9 +61,8 @@
             }
         }
 
-        // --- 소리 생성 로직 ---
         function playSound(type) {
-            initAudio(); // 소리 재생 전 상태 확인
+            initAudio();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
 
@@ -70,14 +70,12 @@
             gain.connect(audioCtx.destination);
 
             if (type === 'success') {
-                // 딩-동 소리 (두 번 울림)
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // 도
-                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.3); // 미
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.3); 
                 gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
             } else {
-                // 삐- 소리 (낮고 거친 소리)
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(150, audioCtx.currentTime);
                 gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
@@ -85,7 +83,7 @@
             }
 
             osc.start();
-            osc.stop(audioCtx.currentTime + 1); // 1초간 재생
+            osc.stop(audioCtx.currentTime + 1);
         }
 
         const inputField = document.getElementById('studentId');
@@ -96,7 +94,6 @@
             if (e.key === 'Enter') {
                 const id = this.value.trim();
                 if (id === "") return;
-                
                 checkStudent(id);
                 this.value = '';
             }
@@ -112,13 +109,13 @@
             if (studentList.has(id)) {
                 resultDiv.innerText = "석식 신청한 학생입니다.";
                 resultDiv.className = "success";
-                playSound('success'); // 성공 소리
+                playSound('success');
                 studentList.delete(id);
                 updateCount();
             } else {
                 resultDiv.innerText = "석식 신청하지 않은 학생입니다.";
                 resultDiv.className = "error";
-                playSound('error'); // 실패 소리
+                playSound('error');
             }
         }
 
@@ -126,14 +123,17 @@
             countDisplay.innerText = studentList.size;
         }
 
-        // --- 관리자/엑셀 로직 ---
         function openAdmin() { document.getElementById('adminModal').style.display = 'flex'; }
         function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
+        
+        // 비밀번호 확인 로직 (1234! 로 변경)
         function checkPw() {
-            if (document.getElementById('adminPw').value === "1234") {
+            if (document.getElementById('adminPw').value === "1234!") {
                 document.getElementById('loginSection').style.display = 'none';
                 document.getElementById('uploadSection').style.display = 'block';
-            } else { alert("비밀번호 틀림"); }
+            } else { 
+                alert("비밀번호가 올바르지 않습니다."); 
+            }
         }
 
         document.getElementById('excelFile').addEventListener('change', function(e) {
@@ -146,7 +146,7 @@
                 studentList.clear();
                 rows.forEach(row => { if (row[0]) studentList.add(row[0].toString().trim()); });
                 updateCount();
-                alert(`총 ${studentList.size}명 등록!`);
+                alert(`총 ${studentList.size}명 등록 완료!`);
                 closeAdmin();
                 inputField.focus();
             };
