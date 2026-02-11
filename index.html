@@ -8,64 +8,71 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; overflow: hidden; }
-        .container { text-align: center; background: white; padding: 30px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 400px; position: relative; }
+        body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; overflow: hidden; touch-action: manipulation; }
+        .container { text-align: center; background: white; padding: 40px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 450px; position: relative; }
         
-        /* ⚙️ 모바일 터치 최적화: 버튼 크기와 터치 영역을 키움 */
+        /* ⚙️ 버튼: 아이패드 터치 및 PC 클릭 모두 최적화 */
         .settings-btn { 
             position: absolute; 
-            top: 10px; 
-            right: 10px; 
-            font-size: 32px; 
+            top: 20px; 
+            right: 20px; 
+            font-size: 35px; 
             cursor: pointer; 
-            background: #eee; /* 위치 확인용 배경색 */
-            border: none;
-            border-radius: 12px;
-            padding: 15px; /* 터치 영역 확대 */
+            background: #f0f0f0; 
+            border: 2px solid #ddd;
+            border-radius: 15px;
+            padding: 10px; 
             z-index: 9999;
             line-height: 1;
+            -webkit-tap-highlight-color: transparent; /* 아이패드 터치 시 파란 박스 제거 */
         }
-        
-        .count-info { font-size: 1.1rem; color: #555; margin-bottom: 10px; }
-        h1 { margin: 20px 0; color: #2c3e50; font-size: 1.5rem; }
-        #studentId { width: 100%; padding: 15px; font-size: 1.5rem; border: 2px solid #ddd; border-radius: 10px; box-sizing: border-box; }
-        #result { margin-top: 25px; font-size: 1.2rem; font-weight: bold; min-height: 1.5em; }
-        
-        /* 모달창 설정 */
-        #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 10000; }
-        .modal-content { background: white; padding: 25px; border-radius: 20px; width: 85%; max-width: 320px; text-align: center; }
-        .admin-btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 8px; border: none; background: #2c3e50; color: white; font-size: 1rem; cursor: pointer; }
-        input[type="password"] { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .settings-btn:active { background: #e0e0e0; scale: 0.95; }
+
+        .count-info { font-size: 1.2rem; color: #555; margin-bottom: 15px; }
+        h1 { margin-bottom: 30px; color: #2c3e50; font-size: 1.8rem; }
+        #studentId { width: 100%; padding: 18px; font-size: 1.6rem; border: 3px solid #eee; border-radius: 15px; text-align: center; box-sizing: border-box; outline: none; }
+        #studentId:focus { border-color: #007bff; }
+        #result { margin-top: 30px; font-size: 1.4rem; font-weight: bold; min-height: 1.5em; }
+
+        /* 관리자 모달창 (맨 위로 띄우기) */
+        #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 10000; }
+        .modal-content { background: white; padding: 30px; border-radius: 25px; width: 80%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .admin-btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 10px; border: none; background: #2c3e50; color: white; font-size: 1.1rem; cursor: pointer; }
+        input[type="password"] { width: 100%; padding: 15px; margin-bottom: 10px; border: 2px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 1.1rem; }
     </style>
 </head>
-<body>
+<body onclick="initAudio()">
 
     <div class="container">
-        <button type="button" class="settings-btn" onclick="openAdmin()">⚙️</button>
+        <button type="button" class="settings-btn" id="gearBtn" 
+                onclick="openAdmin(event)" 
+                ontouchstart="openAdmin(event)">⚙️</button>
         
-        <div class="count-info">남은 인원: <span id="remainingCount">0</span></div>
+        <div class="count-info">급식 남은 인원 : <span id="remainingCount" style="color:#007bff; font-weight:bold;">0</span></div>
         <h1>석식 확인 시스템</h1>
-        <input type="text" id="studentId" placeholder="학번 입력" inputmode="numeric">
+        <input type="text" id="studentId" placeholder="학번 입력 후 엔터" inputmode="numeric" autofocus>
         <div id="result"></div>
     </div>
 
-    <div id="adminModal">
+    <div id="adminModal" onclick="if(event.target == this) closeAdmin()">
         <div class="modal-content">
             <div id="loginSection">
-                <h3>관리자 인증</h3>
+                <h2 style="margin-top:0;">관리자 인증</h2>
                 <input type="password" id="adminPw" placeholder="비밀번호 입력">
-                <button class="admin-btn" onclick="checkPw()">인증하기</button>
+                <button class="admin-btn" onclick="checkPw()">확인</button>
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">취소</button>
             </div>
             <div id="uploadSection" style="display:none;">
-                <h3>명단 업로드</h3>
-                <input type="file" id="excelFile" accept=".xlsx, .xls" style="margin-bottom: 20px;">
+                <h2>명단 업로드</h2>
+                <p style="font-size:0.9rem; color: #666;">엑셀 파일(.xlsx)을 선택하세요.</p>
+                <input type="file" id="excelFile" accept=".xlsx, .xls" style="margin: 15px 0;">
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">닫기</button>
             </div>
         </div>
     </div>
 
     <script>
+        // Firebase 설정 (사용자님의 설정값 고정)
         const firebaseConfig = {
             apiKey: "AIzaSyC1eVAqF527F46V8EgB4lwzzprGyiwqpiU",
             authDomain: "dinner2-1bc7e.firebaseapp.com",
@@ -80,18 +87,30 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 관리자 모달 제어
-        function openAdmin() {
+        // 관리자 창 열기 (이벤트 중복 방지 로직 포함)
+        function openAdmin(e) {
+            if (e) {
+                e.preventDefault(); // 기본 동작 방지
+                e.stopPropagation(); // 이벤트 전파 방지
+            }
             document.getElementById('adminModal').style.display = 'flex';
+            // 아이패드 가상 키보드 이슈 방지를 위해 비밀번호창에 바로 포커스
+            setTimeout(() => document.getElementById('adminPw').focus(), 100);
         }
+
         function closeAdmin() {
             document.getElementById('adminModal').style.display = 'none';
         }
+
         function checkPw() {
-            if (document.getElementById('adminPw').value === "1234!") {
+            const pw = document.getElementById('adminPw').value;
+            if (pw === "1234!") {
                 document.getElementById('loginSection').style.display = 'none';
                 document.getElementById('uploadSection').style.display = 'block';
-            } else { alert("비밀번호가 틀렸습니다."); }
+            } else { 
+                alert("비밀번호가 올바르지 않습니다."); 
+                document.getElementById('adminPw').value = '';
+            }
         }
 
         // 실시간 인원 연동
@@ -106,18 +125,19 @@
             if (e.key === 'Enter') {
                 const id = this.value.trim();
                 if(!id) return;
-
+                
                 db.ref('students/' + id).once('value', (snap) => {
                     const resultDiv = document.getElementById('result');
                     if(snap.exists()) {
-                        resultDiv.innerText = "✅ 확인되었습니다.";
+                        resultDiv.innerText = "✅ " + id + " 학생 확인완료";
                         resultDiv.style.color = "#2ecc71";
                         db.ref('students/' + id).remove();
                     } else {
-                        resultDiv.innerText = "❌ 명단에 없습니다.";
+                        resultDiv.innerText = "❌ 명단에 없는 학번입니다.";
                         resultDiv.style.color = "#e74c3c";
                     }
                     this.value = '';
+                    this.focus();
                 });
             }
         });
@@ -133,12 +153,17 @@
                 let uploadData = {};
                 rows.forEach(row => { if(row[0]) uploadData[row[0].toString().trim()] = true; });
                 db.ref('students').set(uploadData).then(() => {
-                    alert("동기화 완료!");
+                    alert("성공적으로 업로드되었습니다!");
                     closeAdmin();
                 });
             };
             reader.readAsArrayBuffer(file);
         };
+
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
     </script>
 </body>
 </html>
