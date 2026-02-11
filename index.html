@@ -2,14 +2,12 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>석식 확인 시스템 (실시간 연동형)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-    
     <style>
-        /* 기존 스타일 유지 */
+        /* (중략) 기존 디자인 스타일 유지 */
         body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
         .container { text-align: center; background: white; padding: 50px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 450px; position: relative; }
         .settings-btn { position: absolute; top: 25px; right: 25px; font-size: 28px; cursor: pointer; background: none; border: none; color: #aaa; }
@@ -17,7 +15,6 @@
         .count-info span { font-weight: bold; color: #007bff; }
         h1 { margin-bottom: 40px; color: #2c3e50; font-size: 2rem; }
         #studentId { width: 90%; padding: 18px; font-size: 1.8rem; border: 3px solid #eee; border-radius: 15px; text-align: center; outline: none; }
-        #studentId:focus { border-color: #007bff; }
         #result { margin-top: 40px; font-size: 1.6rem; font-weight: 800; min-height: 1.6em; }
         .success { color: #2ecc71; }
         .error { color: #e74c3c; }
@@ -47,22 +44,43 @@
             <div id="uploadSection" style="display:none;">
                 <h2>명단 업로드 (서버 동기화)</h2>
                 <input type="file" id="excelFile" accept=".xlsx, .xls">
-                <button class="admin-btn" style="background:#e67e22" onclick="resetDatabase()">데이터 초기화</button>
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">닫기</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 1. Firebase 설정 (자신의 설정값으로 교체해야 합니다)
+        // // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyC1eVAqF527F46V8EgB4lwzzprGyiwqpiU",
+  authDomain: "dinner2-1bc7e.firebaseapp.com",
+  databaseURL: "https://dinner2-1bc7e-default-rtdb.firebaseio.com",
+  projectId: "dinner2-1bc7e",
+  storageBucket: "dinner2-1bc7e.firebasestorage.app",
+  messagingSenderId: "1097131635899",
+  appId: "1:1097131635899:web:7c4d7c84e0db18690ee59e",
+  measurementId: "G-NGWKJSG6RH"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
         const firebaseConfig = {
-            apiKey: "AIzaSy...",
-            authDomain: "your-project.firebaseapp.com",
-            databaseURL: "https://your-project.firebaseio.com",
-            projectId: "your-project",
-            storageBucket: "your-project.appspot.com",
-            messagingSenderId: "...",
-            appId: "..."
+            apiKey: "AIzaSyC1eVAqF527F46V8EgB4lwzzprGyiwqpiU",
+            authDomain: "dinner2-1bc7e.firebaseapp.com",
+            databaseURL: "https://dinner2-1bc7e-default-rtdb.firebaseio.com",
+            projectId: "dinner2-1bc7e",
+            storageBucket: "dinner2-1bc7e.firebasestorage.app",
+            messagingSenderId: "1097131635899",
+            appId: "1:1097131635899:web:7c4d7c84e0db18690ee59e",
+            measurementId: "G-NGWKJSG6RH"
         };
 
         // Firebase 초기화
@@ -72,7 +90,7 @@
         let localStudentList = new Set();
         let audioCtx = null;
 
-        // 2. 실시간 데이터 리스너 (기기 간 연동 핵심)
+        // 서버 데이터 실시간 감시 (기기 간 연동의 핵심)
         db.ref('students').on('value', (snapshot) => {
             const data = snapshot.val();
             localStudentList = new Set();
@@ -81,9 +99,10 @@
                     if (data[id] === true) localStudentList.add(id);
                 });
             }
-            updateCount();
+            document.getElementById('remainingCount').innerText = localStudentList.size;
         });
 
+        // (이후 사운드 재생, 학생 체크 로직 등 기존 스크립트 내용 유지)
         function initAudio() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -93,57 +112,34 @@
             initAudio();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            if (type === 'success') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
-                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.3); 
-            } else {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-            }
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.frequency.setValueAtTime(type === 'success' ? 523.25 : 150, audioCtx.currentTime);
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
         }
 
-        const inputField = document.getElementById('studentId');
-        const resultDiv = document.getElementById('result');
-        const countDisplay = document.getElementById('remainingCount');
-
-        inputField.addEventListener('keypress', function(e) {
+        document.getElementById('studentId').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 const id = this.value.trim();
                 if (id === "") return;
-                checkStudent(id);
+                
+                if (localStudentList.has(id)) {
+                    document.getElementById('result').innerText = "석식 신청한 학생입니다.";
+                    document.getElementById('result').className = "success";
+                    playSound('success');
+                    db.ref('students/' + id).remove(); // 서버에서 데이터 삭제 -> 모든 기기 동기화
+                } else {
+                    document.getElementById('result').innerText = "석식 신청하지 않은 학생입니다.";
+                    document.getElementById('result').className = "error";
+                    playSound('error');
+                }
                 this.value = '';
+                this.focus();
             }
         });
 
-        // 3. 학생 체크 시 서버 데이터 업데이트
-        function checkStudent(id) {
-            if (localStudentList.has(id)) {
-                resultDiv.innerText = "석식 신청한 학생입니다.";
-                resultDiv.className = "success";
-                playSound('success');
-                // 서버에서 해당 학번을 배식 완료(false)로 변경하거나 삭제
-                db.ref('students/' + id).remove(); 
-            } else {
-                resultDiv.innerText = "석식 신청하지 않은 학생입니다.";
-                resultDiv.className = "error";
-                playSound('error');
-            }
-        }
-
-        function updateCount() {
-            countDisplay.innerText = localStudentList.size;
-        }
-
         function openAdmin() { document.getElementById('adminModal').style.display = 'flex'; }
         function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
-        
         function checkPw() {
             if (document.getElementById('adminPw').value === "1234!") {
                 document.getElementById('loginSection').style.display = 'none';
@@ -151,7 +147,6 @@
             } else { alert("비밀번호가 올바르지 않습니다."); }
         }
 
-        // 4. 명단 업로드 시 서버에 저장
         document.getElementById('excelFile').addEventListener('change', function(e) {
             const file = e.target.files[0];
             const reader = new FileReader();
@@ -162,26 +157,16 @@
                 
                 let uploadData = {};
                 rows.forEach(row => { 
-                    if (row[0]) {
-                        const id = row[0].toString().trim();
-                        uploadData[id] = true;
-                    } 
+                    if (row[0]) uploadData[row[0].toString().trim()] = true; 
                 });
                 
                 db.ref('students').set(uploadData)
-                    .then(() => alert("서버 명단 등록 완료! 모든 기기에 동기화됩니다."))
+                    .then(() => alert("서버 명단 등록 완료! 모든 기기에 실시간 연동됩니다."))
                     .catch(err => alert("오류 발생: " + err));
                 closeAdmin();
-                inputField.focus();
             };
             reader.readAsArrayBuffer(file);
         });
-
-        function resetDatabase() {
-            if(confirm("모든 데이터를 초기화할까요?")) {
-                db.ref('students').remove();
-            }
-        }
     </script>
 </body>
 </html>
