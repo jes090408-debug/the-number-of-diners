@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>석식 확인 시스템 (오리지널 사운드 버전)</title>
+    <title>석식 확인 시스템</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
@@ -20,11 +20,11 @@
         .admin-btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 10px; border: none; background: #2c3e50; color: white; font-size: 1.1rem; cursor: pointer; }
     </style>
 </head>
-<body onclick="setupAudio()">
+<body onclick="initAudio()">
 
     <div class="container">
         <button type="button" class="settings-btn" onclick="openAdmin(event)">⚙️</button>
-        <div class="count-info">급식 남은 인원 : <span id="remainingCount" style="color:#007bff; font-weight:bold;">0</span></div>
+        <div class="count-info">급식 배식 남은 학생 수 : <span id="remainingCount" style="color:#007bff; font-weight:bold;">0</span></div>
         <h1>석식 확인 시스템</h1>
         <input type="text" id="studentId" placeholder="학번 입력 후 엔터" inputmode="numeric" autofocus>
         <div id="result">화면을 한 번 터치해주세요</div>
@@ -62,41 +62,39 @@
         const db = firebase.database();
 
         let audioCtx = null;
-        function setupAudio() {
+        function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                document.getElementById('result').innerText = "시스템 활성화됨";
             }
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        // 특정 주파수의 음을 재생하는 함수
-        function playNote(freq, start, duration, type='sine') {
+        // 사용자가 요청한 바로 그 소리 로직!
+        function playSound(type) {
+            if (!audioCtx) initAudio();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, start);
-            gain.gain.setValueAtTime(0.1, start);
-            gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            osc.start(start);
-            osc.stop(start + duration);
-        }
 
-        function playSound(isSuccess) {
-            if (!audioCtx) return;
-            const now = audioCtx.currentTime;
-
-            if (isSuccess) {
-                // 오리지널 딩-동-댕 리듬 (0.15초 간격)
-                playNote(523.25, now, 0.3);       // 도
-                playNote(659.25, now + 0.15, 0.3); // 미
-                playNote(783.99, now + 0.3, 0.5);  // 솔
+            if (type === 'success') {
+                osc.type = 'sine';
+                // 0초에 '도', 0.3초에 '미'로 주파수 변경 (요청하신 코드 방식)
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.3); 
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
             } else {
-                // 삐- (1초간 길게)
-                playNote(150, now, 1.0, 'sawtooth');
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                // 삐- 소리는 1초 동안 유지
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
             }
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1);
         }
 
         function openAdmin(e) { e.preventDefault(); document.getElementById('adminModal').style.display = 'flex'; }
@@ -121,14 +119,14 @@
                 db.ref('students/' + id).once('value', (snap) => {
                     const resultDiv = document.getElementById('result');
                     if(snap.exists()) {
-                        resultDiv.innerText = "✅ " + id + " 확인 완료";
+                        resultDiv.innerText = "✅ 확인되었습니다.";
                         resultDiv.style.color = "#2ecc71";
-                        playSound(true); 
+                        playSound('success'); 
                         db.ref('students/' + id).remove();
                     } else {
-                        resultDiv.innerText = "❌ 명단에 없음";
+                        resultDiv.innerText = "❌ 신청하지 않은 학생입니다.";
                         resultDiv.style.color = "#e74c3c";
-                        playSound(false); 
+                        playSound('error'); 
                     }
                     this.value = '';
                     this.focus();
@@ -146,7 +144,7 @@
                 let uploadData = {};
                 rows.forEach(row => { if(row[0]) uploadData[row[0].toString().trim()] = true; });
                 db.ref('students').set(uploadData).then(() => {
-                    alert("업로드 완료");
+                    alert("업로드 완료!");
                     closeAdmin();
                 });
             };
