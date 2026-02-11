@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>석식 확인 시스템</title>
+    <title>석식 확인 시스템 (전체 화면 동기화)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
@@ -14,7 +14,7 @@
         .count-info { font-size: 1.2rem; color: #555; margin-bottom: 15px; }
         h1 { margin-bottom: 30px; color: #2c3e50; font-size: 1.8rem; }
         #studentId { width: 100%; padding: 18px; font-size: 1.6rem; border: 3px solid #eee; border-radius: 15px; text-align: center; box-sizing: border-box; outline: none; }
-        #result { margin-top: 30px; font-size: 1.4rem; font-weight: bold; min-height: 1.5em; }
+        #result { margin-top: 30px; font-size: 1.4rem; font-weight: bold; min-height: 1.5em; transition: all 0.2s; }
         #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; padding: 30px; border-radius: 25px; width: 80%; max-width: 350px; text-align: center; }
         .admin-btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 10px; border: none; background: #2c3e50; color: white; font-size: 1.1rem; cursor: pointer; }
@@ -69,7 +69,6 @@
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        // 요청하신 부드러운 딩동 소리 로직
         function playSound(type) {
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
@@ -93,13 +92,27 @@
             osc.stop(audioCtx.currentTime + 1);
         }
 
-        // 남은 인원만 실시간으로 모든 기기에 동기화
+        // --- 실시간 화면 동기화 로직 ---
+
+        // 1. 누군가 확인되어 데이터가 삭제되면 모든 기기 화면을 업데이트
+        db.ref('students').on('child_removed', (snapshot) => {
+            const id = snapshot.key;
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerText = "✅ " + id + " 확인 완료";
+            resultDiv.style.color = "#2ecc71";
+            
+            // 효과음을 위해 잠깐 반짝이는 효과 추가
+            resultDiv.style.transform = "scale(1.1)";
+            setTimeout(() => { resultDiv.style.transform = "scale(1.0)"; }, 200);
+        });
+
+        // 2. 남은 인원 실시간 업데이트
         db.ref('students').on('value', (snapshot) => {
             const data = snapshot.val();
             document.getElementById('remainingCount').innerText = data ? Object.keys(data).length : 0;
         });
 
-        // 학번 입력 시 처리 (입력한 기기에서만 소리 발생)
+        // 3. 학번 입력 시 처리
         document.getElementById('studentId').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 const id = this.value.trim();
@@ -108,17 +121,13 @@
                 
                 db.ref('students/' + id).once('value', (snap) => {
                     if(snap.exists()) {
-                        // 1. 결과 텍스트 표시
-                        resultDiv.innerText = "✅ " + id + " 확인 완료";
-                        resultDiv.style.color = "#2ecc71";
-                        
-                        // 2. 소리 재생 (이 입력을 처리 중인 기기에서만!)
+                        // 입력한 이 기기에서만 소리 재생
                         playSound('success'); 
-                        
-                        // 3. 서버 데이터 삭제 (다른 기기의 숫자도 자동으로 줄어듦)
+                        // 서버에서 삭제 (삭제되는 순간 모든 기기 화면에 학번이 뜸)
                         db.ref('students/' + id).remove();
                     } else {
-                        resultDiv.innerText = "❌ 명단에 없는 학번입니다.";
+                        // 실패 시에는 입력한 기기만 에러 메시지와 소리 출력
+                        resultDiv.innerText = "❌ 명단에 없는 학번: " + id;
                         resultDiv.style.color = "#e74c3c";
                         playSound('error'); 
                     }
@@ -128,7 +137,6 @@
             }
         });
 
-        // 관리자 인증 및 업로드
         function openAdmin(e) { e.preventDefault(); document.getElementById('adminModal').style.display = 'flex'; }
         function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
         function checkPw() {
