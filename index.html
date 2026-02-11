@@ -3,29 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>석식 확인 시스템 (최종 완성본)</title>
+    <title>석식 확인 시스템</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; overflow: hidden; touch-action: manipulation; }
         .container { text-align: center; background: white; padding: 40px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 450px; position: relative; }
-        
-        /* 설정 버튼 디자인 */
-        .settings-btn { 
-            position: absolute; top: 20px; right: 20px; font-size: 30px; cursor: pointer; 
-            background: #f0f0f0; border: 1px solid #ddd; border-radius: 12px; padding: 10px; z-index: 999;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
+        .settings-btn { position: absolute; top: 20px; right: 20px; font-size: 30px; cursor: pointer; background: #f0f0f0; border: 1px solid #ddd; border-radius: 12px; padding: 10px; z-index: 999; }
         .count-info { font-size: 1.2rem; color: #555; margin-bottom: 15px; }
         h1 { margin-bottom: 30px; color: #2c3e50; font-size: 1.8rem; }
-        #studentId { width: 100%; padding: 18px; font-size: 1.6rem; border: 3px solid #eee; border-radius: 15px; text-align: center; box-sizing: border-box; outline: none; transition: border 0.3s; }
-        #studentId:focus { border-color: #007bff; }
-        
+        #studentId { width: 100%; padding: 18px; font-size: 1.6rem; border: 3px solid #eee; border-radius: 15px; text-align: center; box-sizing: border-box; outline: none; }
         #result { margin-top: 30px; font-size: 1.4rem; font-weight: bold; min-height: 1.5em; }
-        
-        /* 모달창 스타일 */
         #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; padding: 30px; border-radius: 25px; width: 80%; max-width: 350px; text-align: center; }
         .admin-btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 10px; border: none; background: #2c3e50; color: white; font-size: 1.1rem; cursor: pointer; }
@@ -34,12 +23,11 @@
 <body onclick="setupAudio()">
 
     <div class="container">
-        <button type="button" class="settings-btn" onclick="openAdmin(event)" ontouchstart="openAdmin(event)">⚙️</button>
-        
+        <button type="button" class="settings-btn" onclick="openAdmin(event)">⚙️</button>
         <div class="count-info">급식 남은 인원 : <span id="remainingCount" style="color:#007bff; font-weight:bold;">0</span></div>
         <h1>석식 확인 시스템</h1>
         <input type="text" id="studentId" placeholder="학번 입력 후 엔터" inputmode="numeric" autofocus>
-        <div id="result">화면을 터치하면 소리가 활성화됩니다.</div>
+        <div id="result">화면을 한 번 터치해주세요</div>
     </div>
 
     <div id="adminModal">
@@ -52,16 +40,13 @@
             </div>
             <div id="uploadSection" style="display:none;">
                 <h2>명단 업로드</h2>
-                <p>엑셀(.xlsx) 파일을 선택하세요.</p>
                 <input type="file" id="excelFile" accept=".xlsx, .xls">
-                <br><br>
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">닫기</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 1. Firebase 설정
         const firebaseConfig = {
             apiKey: "AIzaSyC1eVAqF527F46V8EgB4lwzzprGyiwqpiU",
             authDomain: "dinner2-1bc7e.firebaseapp.com",
@@ -76,23 +61,26 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 2. 사운드 시스템 (딩-동-댕 리듬 보완)
         let audioCtx = null;
         function setupAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                document.getElementById('result').innerText = "시스템 준비 완료";
+                document.getElementById('result').innerText = "시스템 활성화 완료";
             }
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        function playNote(freq, start, duration, type='sine', volume=0.15) {
+        // 개별 음 재생 (더 선명한 음색을 위해 'triangle' 파형 사용)
+        function playNote(freq, start, duration) {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.type = type;
+            osc.type = 'triangle'; // 더 맑은 소리
             osc.frequency.setValueAtTime(freq, start);
-            gain.gain.setValueAtTime(volume, start);
-            gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+            
+            gain.gain.setValueAtTime(0, start);
+            gain.gain.linearRampToValueAtTime(0.2, start + 0.05); // 어택
+            gain.gain.exponentialRampToValueAtTime(0.001, start + duration); // 릴리즈
+            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start(start);
@@ -102,38 +90,41 @@
         function playSound(isSuccess) {
             if (!audioCtx) return;
             const now = audioCtx.currentTime;
+
             if (isSuccess) {
-                // 딩 - 동 - 댕
-                playNote(523.25, now, 0.4);       // 도 (딩)
-                playNote(659.25, now + 0.2, 0.4); // 미 (동)
-                playNote(783.99, now + 0.4, 0.6); // 솔 (댕)
+                // 확실한 딩-동-댕 (시간 간격 대폭 확대)
+                playNote(523.25, now, 0.8);        // 딩 (도)
+                playNote(659.25, now + 0.5, 0.8);  // 동 (미)
+                playNote(783.99, now + 1.0, 1.0);  // 댕 (솔)
             } else {
-                // 삐- (1초간 길게)
-                playNote(150, now, 1.0, 'sawtooth', 0.1);
+                // 삐- (낮고 무거운 소리 1초 유지)
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0, now + 1.0);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 1.0);
             }
         }
 
-        // 3. 로직 및 이벤트
-        function openAdmin(e) {
-            if(e) { e.preventDefault(); e.stopPropagation(); }
-            document.getElementById('adminModal').style.display = 'flex';
-        }
+        function openAdmin(e) { e.preventDefault(); document.getElementById('adminModal').style.display = 'flex'; }
         function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
-        
         function checkPw() {
             if (document.getElementById('adminPw').value === "1234!") {
                 document.getElementById('loginSection').style.display = 'none';
                 document.getElementById('uploadSection').style.display = 'block';
-            } else { alert("비밀번호 오류!"); }
+            } else { alert("비밀번호 오류"); }
         }
 
-        // 서버 데이터 연동
         db.ref('students').on('value', (snapshot) => {
             const data = snapshot.val();
             document.getElementById('remainingCount').innerText = data ? Object.keys(data).length : 0;
         });
 
-        // 학번 입력 처리
         document.getElementById('studentId').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 const id = this.value.trim();
@@ -142,14 +133,14 @@
                 db.ref('students/' + id).once('value', (snap) => {
                     const resultDiv = document.getElementById('result');
                     if(snap.exists()) {
-                        resultDiv.innerText = "✅ " + id + " 확인 완료";
+                        resultDiv.innerText = "✅ " + id + " 확인";
                         resultDiv.style.color = "#2ecc71";
-                        playSound(true); // 딩동댕
+                        playSound(true); 
                         db.ref('students/' + id).remove();
                     } else {
-                        resultDiv.innerText = "❌ 명단에 없는 학번입니다";
+                        resultDiv.innerText = "❌ 명단 없음";
                         resultDiv.style.color = "#e74c3c";
-                        playSound(false); // 삐- (1초)
+                        playSound(false); 
                     }
                     this.value = '';
                     this.focus();
@@ -157,7 +148,6 @@
             }
         });
 
-        // 엑셀 업로드 처리
         document.getElementById('excelFile').onchange = function(e) {
             const file = e.target.files[0];
             const reader = new FileReader();
@@ -168,7 +158,7 @@
                 let uploadData = {};
                 rows.forEach(row => { if(row[0]) uploadData[row[0].toString().trim()] = true; });
                 db.ref('students').set(uploadData).then(() => {
-                    alert("명단이 실시간 서버에 등록되었습니다!");
+                    alert("업로드 완료");
                     closeAdmin();
                 });
             };
