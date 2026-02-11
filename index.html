@@ -7,10 +7,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
-        /* (중략) 기존 디자인 스타일 유지 */
         body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
         .container { text-align: center; background: white; padding: 50px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 450px; position: relative; }
-        .settings-btn { position: absolute; top: 25px; right: 25px; font-size: 28px; cursor: pointer; background: none; border: none; color: #aaa; }
+        .settings-btn { position: absolute; top: 25px; right: 25px; font-size: 28px; cursor: pointer; background: none; border: none; color: #aaa; z-index: 5; }
         .count-info { font-size: 1.3rem; color: #555; margin-bottom: 10px; }
         .count-info span { font-weight: bold; color: #007bff; }
         h1 { margin-bottom: 40px; color: #2c3e50; font-size: 2rem; }
@@ -18,7 +17,7 @@
         #result { margin-top: 40px; font-size: 1.6rem; font-weight: 800; min-height: 1.6em; }
         .success { color: #2ecc71; }
         .error { color: #e74c3c; }
-        #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 10; }
+        #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: white; padding: 30px; border-radius: 20px; width: 320px; }
         .admin-btn { width: 100%; padding: 12px; background: #2c3e50; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
     </style>
@@ -44,34 +43,14 @@
             <div id="uploadSection" style="display:none;">
                 <h2>명단 업로드 (서버 동기화)</h2>
                 <input type="file" id="excelFile" accept=".xlsx, .xls">
+                <br><br>
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">닫기</button>
             </div>
         </div>
     </div>
 
     <script>
-        // // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyC1eVAqF527F46V8EgB4lwzzprGyiwqpiU",
-  authDomain: "dinner2-1bc7e.firebaseapp.com",
-  databaseURL: "https://dinner2-1bc7e-default-rtdb.firebaseio.com",
-  projectId: "dinner2-1bc7e",
-  storageBucket: "dinner2-1bc7e.firebasestorage.app",
-  messagingSenderId: "1097131635899",
-  appId: "1:1097131635899:web:7c4d7c84e0db18690ee59e",
-  measurementId: "G-NGWKJSG6RH"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+        // 1. Firebase 설정값 (이미지에 나온 정보로 일원화)
         const firebaseConfig = {
             apiKey: "AIzaSyC1eVAqF527F46V8EgB4lwzzprGyiwqpiU",
             authDomain: "dinner2-1bc7e.firebaseapp.com",
@@ -83,14 +62,14 @@ const analytics = getAnalytics(app);
             measurementId: "G-NGWKJSG6RH"
         };
 
-        // Firebase 초기화
+        // 2. Firebase 초기화 (compat 모드 방식)
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
         let localStudentList = new Set();
         let audioCtx = null;
 
-        // 서버 데이터 실시간 감시 (기기 간 연동의 핵심)
+        // 서버 데이터 실시간 감시
         db.ref('students').on('value', (snapshot) => {
             const data = snapshot.val();
             localStudentList = new Set();
@@ -102,7 +81,6 @@ const analytics = getAnalytics(app);
             document.getElementById('remainingCount').innerText = localStudentList.size;
         });
 
-        // (이후 사운드 재생, 학생 체크 로직 등 기존 스크립트 내용 유지)
         function initAudio() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -127,7 +105,7 @@ const analytics = getAnalytics(app);
                     document.getElementById('result').innerText = "석식 신청한 학생입니다.";
                     document.getElementById('result').className = "success";
                     playSound('success');
-                    db.ref('students/' + id).remove(); // 서버에서 데이터 삭제 -> 모든 기기 동기화
+                    db.ref('students/' + id).remove(); 
                 } else {
                     document.getElementById('result').innerText = "석식 신청하지 않은 학생입니다.";
                     document.getElementById('result').className = "error";
@@ -138,8 +116,16 @@ const analytics = getAnalytics(app);
             }
         });
 
-        function openAdmin() { document.getElementById('adminModal').style.display = 'flex'; }
-        function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
+        // 설정창 열기 함수 (이제 잘 작동할 거예요!)
+        function openAdmin() { 
+            document.getElementById('adminModal').style.display = 'flex'; 
+        }
+        function closeAdmin() { 
+            document.getElementById('adminModal').style.display = 'none'; 
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('adminPw').value = '';
+        }
         function checkPw() {
             if (document.getElementById('adminPw').value === "1234!") {
                 document.getElementById('loginSection').style.display = 'none';
@@ -161,7 +147,7 @@ const analytics = getAnalytics(app);
                 });
                 
                 db.ref('students').set(uploadData)
-                    .then(() => alert("서버 명단 등록 완료! 모든 기기에 실시간 연동됩니다."))
+                    .then(() => alert("서버 명단 등록 완료!"))
                     .catch(err => alert("오류 발생: " + err));
                 closeAdmin();
             };
