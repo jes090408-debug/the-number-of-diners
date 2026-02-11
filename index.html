@@ -9,24 +9,12 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; overflow: hidden; touch-action: manipulation; }
-        .container { text-align: center; background: white; padding: 30px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 450px; height: 85vh; position: relative; display: flex; flex-direction: column; }
-        .settings-btn { position: absolute; top: 20px; right: 20px; font-size: 24px; cursor: pointer; background: #f0f0f0; border: none; border-radius: 10px; padding: 5px 10px; z-index: 999; }
-        .count-info { font-size: 1.1rem; color: #555; margin-bottom: 5px; }
-        h1 { margin: 10px 0; color: #2c3e50; font-size: 1.5rem; }
-        
-        #studentId { width: 100%; padding: 15px; font-size: 1.5rem; border: 3px solid #eee; border-radius: 15px; text-align: center; box-sizing: border-box; outline: none; }
-        #studentId:focus { border-color: #007bff; }
-        
-        /* 결과 메시지 영역 (알림창 대신 사용) */
-        #resultMsg { margin-top: 15px; font-size: 1.2rem; font-weight: bold; min-height: 1.5em; }
-
-        /* 기록 리스트 영역 (고정 높이 및 내부 스크롤) */
-        #logContainer { margin-top: 15px; flex-grow: 1; overflow-y: auto; text-align: left; background: #fafafa; border-radius: 15px; padding: 10px; border: 1px solid #eee; }
-        .log-item { padding: 10px; border-bottom: 1px solid #eee; font-size: 1rem; display: flex; justify-content: space-between; align-items: center; }
-        .log-item:first-child { font-weight: bold; color: #2ecc71; background: #eafaf1; border-radius: 8px; }
-        .log-time { font-size: 0.8rem; color: #aaa; }
-
-        /* 관리자 모달 */
+        .container { text-align: center; background: white; padding: 40px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 450px; position: relative; }
+        .settings-btn { position: absolute; top: 20px; right: 20px; font-size: 30px; cursor: pointer; background: #f0f0f0; border: 1px solid #ddd; border-radius: 12px; padding: 10px; z-index: 999; }
+        .count-info { font-size: 1.2rem; color: #555; margin-bottom: 15px; }
+        h1 { margin-bottom: 30px; color: #2c3e50; font-size: 1.8rem; }
+        #studentId { width: 100%; padding: 18px; font-size: 1.6rem; border: 3px solid #eee; border-radius: 15px; text-align: center; box-sizing: border-box; outline: none; }
+        #result { margin-top: 30px; font-size: 1.4rem; font-weight: bold; min-height: 1.5em; }
         #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; padding: 30px; border-radius: 25px; width: 80%; max-width: 350px; text-align: center; }
         .admin-btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 10px; border: none; background: #2c3e50; color: white; font-size: 1.1rem; cursor: pointer; }
@@ -36,15 +24,10 @@
 
     <div class="container">
         <button type="button" class="settings-btn" onclick="openAdmin(event)">⚙️</button>
-        <div class="count-info">남은 인원 : <span id="remainingCount" style="color:#007bff; font-weight:bold;">0</span></div>
+        <div class="count-info">급식 배식 남은 학생 수 : <span id="remainingCount" style="color:#007bff; font-weight:bold;">0</span></div>
         <h1>석식 확인 시스템</h1>
         <input type="text" id="studentId" placeholder="학번 입력 후 엔터" inputmode="numeric" autofocus>
-        
-        <div id="resultMsg">화면을 터치하면 시작합니다</div>
-        
-        <div id="logContainer">
-            <div style="text-align:center; color:#ccc; margin-top:20px;">기록이 여기에 표시됩니다.</div>
-        </div>
+        <div id="result">화면을 한 번 터치해주세요</div>
     </div>
 
     <div id="adminModal">
@@ -56,9 +39,8 @@
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">취소</button>
             </div>
             <div id="uploadSection" style="display:none;">
-                <h2>설정</h2>
+                <h2>명단 업로드</h2>
                 <input type="file" id="excelFile" accept=".xlsx, .xls">
-                <button class="admin-btn" style="background:#e74c3c" onclick="clearLogs()">기록 전체 삭제</button>
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">닫기</button>
             </div>
         </div>
@@ -81,15 +63,20 @@
 
         let audioCtx = null;
         function initAudio() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
+        // 요청하신 부드러운 딩동 소리 로직
         function playSound(type) {
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
             if (type === 'success') {
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
@@ -102,60 +89,46 @@
                 gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
             }
-            osc.start(); osc.stop(audioCtx.currentTime + 1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1);
         }
 
-        // 1. 실시간 기록 업데이트 (모든 기기 동기화)
-        db.ref('logs').limitToLast(20).on('value', (snapshot) => {
-            const logContainer = document.getElementById('logContainer');
-            logContainer.innerHTML = '';
-            const data = snapshot.val();
-            if (data) {
-                const sortedKeys = Object.keys(data).reverse();
-                sortedKeys.forEach(key => {
-                    const log = data[key];
-                    const item = document.createElement('div');
-                    item.className = 'log-item';
-                    item.innerHTML = `<span>✅ ${log.id} 확인됨</span><span class="log-time">${log.time}</span>`;
-                    logContainer.appendChild(item);
-                });
-            } else {
-                logContainer.innerHTML = '<div style="text-align:center; color:#ccc; margin-top:20px;">기록이 없습니다.</div>';
-            }
-        });
-
-        // 2. 인원수 동기화
+        // 남은 인원만 실시간으로 모든 기기에 동기화
         db.ref('students').on('value', (snapshot) => {
-            document.getElementById('remainingCount').innerText = snapshot.val() ? Object.keys(snapshot.val()).length : 0;
+            const data = snapshot.val();
+            document.getElementById('remainingCount').innerText = data ? Object.keys(data).length : 0;
         });
 
-        // 3. 입력 처리
+        // 학번 입력 시 처리 (입력한 기기에서만 소리 발생)
         document.getElementById('studentId').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 const id = this.value.trim();
-                const msg = document.getElementById('resultMsg');
+                const resultDiv = document.getElementById('result');
                 if(!id) return;
                 
                 db.ref('students/' + id).once('value', (snap) => {
                     if(snap.exists()) {
-                        msg.innerText = "✅ " + id + " 확인 완료";
-                        msg.style.color = "#2ecc71";
+                        // 1. 결과 텍스트 표시
+                        resultDiv.innerText = "✅ " + id + " 확인 완료";
+                        resultDiv.style.color = "#2ecc71";
+                        
+                        // 2. 소리 재생 (이 입력을 처리 중인 기기에서만!)
                         playSound('success'); 
-                        const now = new Date();
-                        const timeStr = now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0') + ":" + String(now.getSeconds()).padStart(2, '0');
-                        db.ref('logs').push({ id: id, time: timeStr });
+                        
+                        // 3. 서버 데이터 삭제 (다른 기기의 숫자도 자동으로 줄어듦)
                         db.ref('students/' + id).remove();
                     } else {
-                        // 명단에 없을 때 빨간 글씨만 출력 (알림창 X)
-                        msg.innerText = "❌ 명단에 없는 학번입니다.";
-                        msg.style.color = "#e74c3c";
+                        resultDiv.innerText = "❌ 명단에 없는 학번입니다.";
+                        resultDiv.style.color = "#e74c3c";
                         playSound('error'); 
                     }
                     this.value = '';
+                    this.focus();
                 });
             }
         });
 
+        // 관리자 인증 및 업로드
         function openAdmin(e) { e.preventDefault(); document.getElementById('adminModal').style.display = 'flex'; }
         function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
         function checkPw() {
@@ -164,7 +137,6 @@
                 document.getElementById('uploadSection').style.display = 'block';
             } else { alert("비밀번호 오류"); }
         }
-        function clearLogs() { if(confirm("모든 기록을 삭제하시겠습니까?")) db.ref('logs').remove(); }
 
         document.getElementById('excelFile').onchange = function(e) {
             const file = e.target.files[0];
@@ -175,7 +147,10 @@
                 const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
                 let uploadData = {};
                 rows.forEach(row => { if(row[0]) uploadData[row[0].toString().trim()] = true; });
-                db.ref('students').set(uploadData).then(() => { alert("업로드 완료!"); closeAdmin(); });
+                db.ref('students').set(uploadData).then(() => {
+                    alert("업로드 완료!");
+                    closeAdmin();
+                });
             };
             reader.readAsArrayBuffer(file);
         };
