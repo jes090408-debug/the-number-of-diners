@@ -2,55 +2,70 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>석식 확인 시스템 (실시간 연동형)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>석식 확인 시스템</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; }
-        .container { text-align: center; background: white; padding: 50px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 450px; position: relative; }
-        .settings-btn { position: absolute; top: 25px; right: 25px; font-size: 28px; cursor: pointer; background: none; border: none; color: #aaa; z-index: 5; }
-        .count-info { font-size: 1.3rem; color: #555; margin-bottom: 10px; }
-        .count-info span { font-weight: bold; color: #007bff; }
-        h1 { margin-bottom: 40px; color: #2c3e50; font-size: 2rem; }
-        #studentId { width: 90%; padding: 18px; font-size: 1.8rem; border: 3px solid #eee; border-radius: 15px; text-align: center; outline: none; }
-        #result { margin-top: 40px; font-size: 1.6rem; font-weight: 800; min-height: 1.6em; }
-        .success { color: #2ecc71; }
-        .error { color: #e74c3c; }
-        #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 100; }
-        .modal-content { background: white; padding: 30px; border-radius: 20px; width: 320px; }
-        .admin-btn { width: 100%; padding: 12px; background: #2c3e50; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+        body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; overflow: hidden; }
+        .container { text-align: center; background: white; padding: 30px; border-radius: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 90%; max-width: 400px; position: relative; }
+        
+        /* ⚙️ 모바일 터치 최적화: 버튼 크기와 터치 영역을 키움 */
+        .settings-btn { 
+            position: absolute; 
+            top: 10px; 
+            right: 10px; 
+            font-size: 32px; 
+            cursor: pointer; 
+            background: #eee; /* 위치 확인용 배경색 */
+            border: none;
+            border-radius: 12px;
+            padding: 15px; /* 터치 영역 확대 */
+            z-index: 9999;
+            line-height: 1;
+        }
+        
+        .count-info { font-size: 1.1rem; color: #555; margin-bottom: 10px; }
+        h1 { margin: 20px 0; color: #2c3e50; font-size: 1.5rem; }
+        #studentId { width: 100%; padding: 15px; font-size: 1.5rem; border: 2px solid #ddd; border-radius: 10px; box-sizing: border-box; }
+        #result { margin-top: 25px; font-size: 1.2rem; font-weight: bold; min-height: 1.5em; }
+        
+        /* 모달창 설정 */
+        #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 10000; }
+        .modal-content { background: white; padding: 25px; border-radius: 20px; width: 85%; max-width: 320px; text-align: center; }
+        .admin-btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 8px; border: none; background: #2c3e50; color: white; font-size: 1rem; cursor: pointer; }
+        input[type="password"] { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
     </style>
 </head>
-<body onclick="initAudio()">
+<body>
 
     <div class="container">
-        <button class="settings-btn" onclick="openAdmin()">⚙️</button>
-        <div class="count-info">급식 배식 남은 학생 수 : <span id="remainingCount">0</span></div>
+        <button type="button" class="settings-btn" onclick="openAdmin()">⚙️</button>
+        
+        <div class="count-info">남은 인원: <span id="remainingCount">0</span></div>
         <h1>석식 확인 시스템</h1>
-        <input type="text" id="studentId" placeholder="학번 입력 후 엔터" autofocus autocomplete="off">
+        <input type="text" id="studentId" placeholder="학번 입력" inputmode="numeric">
         <div id="result"></div>
     </div>
 
     <div id="adminModal">
         <div class="modal-content">
             <div id="loginSection">
-                <h2>관리자 인증</h2>
+                <h3>관리자 인증</h3>
                 <input type="password" id="adminPw" placeholder="비밀번호 입력">
-                <button class="admin-btn" onclick="checkPw()">확인</button>
+                <button class="admin-btn" onclick="checkPw()">인증하기</button>
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">취소</button>
             </div>
             <div id="uploadSection" style="display:none;">
-                <h2>명단 업로드 (서버 동기화)</h2>
-                <input type="file" id="excelFile" accept=".xlsx, .xls">
-                <br><br>
+                <h3>명단 업로드</h3>
+                <input type="file" id="excelFile" accept=".xlsx, .xls" style="margin-bottom: 20px;">
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">닫기</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 1. Firebase 설정값 (이미지에 나온 정보로 일원화)
         const firebaseConfig = {
             apiKey: "AIzaSyC1eVAqF527F46V8EgB4lwzzprGyiwqpiU",
             authDomain: "dinner2-1bc7e.firebaseapp.com",
@@ -62,97 +77,68 @@
             measurementId: "G-NGWKJSG6RH"
         };
 
-        // 2. Firebase 초기화 (compat 모드 방식)
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        let localStudentList = new Set();
-        let audioCtx = null;
-
-        // 서버 데이터 실시간 감시
-        db.ref('students').on('value', (snapshot) => {
-            const data = snapshot.val();
-            localStudentList = new Set();
-            if (data) {
-                Object.keys(data).forEach(id => {
-                    if (data[id] === true) localStudentList.add(id);
-                });
-            }
-            document.getElementById('remainingCount').innerText = localStudentList.size;
-        });
-
-        function initAudio() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
+        // 관리자 모달 제어
+        function openAdmin() {
+            document.getElementById('adminModal').style.display = 'flex';
         }
-
-        function playSound(type) {
-            initAudio();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.frequency.setValueAtTime(type === 'success' ? 523.25 : 150, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
-        }
-
-        document.getElementById('studentId').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                const id = this.value.trim();
-                if (id === "") return;
-                
-                if (localStudentList.has(id)) {
-                    document.getElementById('result').innerText = "석식 신청한 학생입니다.";
-                    document.getElementById('result').className = "success";
-                    playSound('success');
-                    db.ref('students/' + id).remove(); 
-                } else {
-                    document.getElementById('result').innerText = "석식 신청하지 않은 학생입니다.";
-                    document.getElementById('result').className = "error";
-                    playSound('error');
-                }
-                this.value = '';
-                this.focus();
-            }
-        });
-
-        // 설정창 열기 함수 (이제 잘 작동할 거예요!)
-        function openAdmin() { 
-            document.getElementById('adminModal').style.display = 'flex'; 
-        }
-        function closeAdmin() { 
-            document.getElementById('adminModal').style.display = 'none'; 
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('uploadSection').style.display = 'none';
-            document.getElementById('adminPw').value = '';
+        function closeAdmin() {
+            document.getElementById('adminModal').style.display = 'none';
         }
         function checkPw() {
             if (document.getElementById('adminPw').value === "1234!") {
                 document.getElementById('loginSection').style.display = 'none';
                 document.getElementById('uploadSection').style.display = 'block';
-            } else { alert("비밀번호가 올바르지 않습니다."); }
+            } else { alert("비밀번호가 틀렸습니다."); }
         }
 
-        document.getElementById('excelFile').addEventListener('change', function(e) {
+        // 실시간 인원 연동
+        db.ref('students').on('value', (snapshot) => {
+            const data = snapshot.val();
+            const count = data ? Object.keys(data).length : 0;
+            document.getElementById('remainingCount').innerText = count;
+        });
+
+        // 학번 입력 로직
+        document.getElementById('studentId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const id = this.value.trim();
+                if(!id) return;
+
+                db.ref('students/' + id).once('value', (snap) => {
+                    const resultDiv = document.getElementById('result');
+                    if(snap.exists()) {
+                        resultDiv.innerText = "✅ 확인되었습니다.";
+                        resultDiv.style.color = "#2ecc71";
+                        db.ref('students/' + id).remove();
+                    } else {
+                        resultDiv.innerText = "❌ 명단에 없습니다.";
+                        resultDiv.style.color = "#e74c3c";
+                    }
+                    this.value = '';
+                });
+            }
+        });
+
+        // 엑셀 업로드
+        document.getElementById('excelFile').onchange = function(e) {
             const file = e.target.files[0];
             const reader = new FileReader();
             reader.onload = function(event) {
                 const data = new Uint8Array(event.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-                
+                const workbook = XLSX.read(data, {type: 'array'});
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
                 let uploadData = {};
-                rows.forEach(row => { 
-                    if (row[0]) uploadData[row[0].toString().trim()] = true; 
+                rows.forEach(row => { if(row[0]) uploadData[row[0].toString().trim()] = true; });
+                db.ref('students').set(uploadData).then(() => {
+                    alert("동기화 완료!");
+                    closeAdmin();
                 });
-                
-                db.ref('students').set(uploadData)
-                    .then(() => alert("서버 명단 등록 완료!"))
-                    .catch(err => alert("오류 발생: " + err));
-                closeAdmin();
             };
             reader.readAsArrayBuffer(file);
-        });
+        };
     </script>
 </body>
 </html>
