@@ -8,56 +8,61 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     <style>
-        body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f4f7f6; overflow: hidden; touch-action: manipulation; }
+        body { font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f4f7f6; overflow-x: hidden; touch-action: manipulation; }
         
-        /* 전체 컨테이너 크기 확장 */
-        .container { text-align: center; background: white; padding: 50px 30px; border-radius: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); width: 95%; max-width: 600px; position: relative; }
+        /* 1. 컨테이너 너비 제한을 풀고 화면의 95%를 사용하게 설정 */
+        .container { 
+            text-align: center; 
+            background: white; 
+            padding: 60px 20px; 
+            border-radius: 50px; 
+            box-shadow: 0 25px 60px rgba(0,0,0,0.15); 
+            width: 95%; 
+            max-width: 1000px; /* 기존 450px -> 1000px로 대폭 확장 */
+            position: relative; 
+            margin: 20px;
+        }
         
-        /* 설정 버튼 크기 업 */
-        .settings-btn { position: absolute; top: 25px; right: 25px; font-size: 40px; cursor: pointer; background: #f0f0f0; border: 1px solid #ddd; border-radius: 15px; padding: 12px; z-index: 999; line-height: 1; }
-        
-        /* 남은 인원 표시 크기 업 */
-        .count-info { font-size: 1.8rem; color: #555; margin-bottom: 25px; font-weight: bold; }
-        #remainingCount { font-size: 2.2rem; }
+        /* 2. 상단 설정 버튼 및 인원 정보 크기 확대 */
+        .settings-btn { position: absolute; top: 30px; right: 30px; font-size: 50px; cursor: pointer; background: #f0f0f0; border: 1px solid #ddd; border-radius: 20px; padding: 15px; z-index: 999; }
+        .count-info { font-size: 2.5rem; color: #555; margin-bottom: 30px; font-weight: bold; }
+        #remainingCount { font-size: 3.5rem; }
 
-        /* 메인 제목 크기 업 */
-        h1 { margin-bottom: 40px; color: #2c3e50; font-size: 2.5rem; letter-spacing: -1px; }
+        /* 3. 제목 및 입력창 거대화 */
+        h1 { margin-bottom: 50px; color: #2c3e50; font-size: 3.5rem; }
         
-        /* 입력창 대형화 */
         #studentId { 
-            width: 100%; 
-            padding: 25px; 
-            font-size: 2.5rem; 
-            border: 5px solid #ebebeb; 
-            border-radius: 20px; 
+            width: 90%; 
+            padding: 40px; 
+            font-size: 4rem; /* 입력 글자 거대화 */
+            border: 8px solid #ebebeb; 
+            border-radius: 30px; 
             text-align: center; 
             box-sizing: border-box; 
             outline: none; 
-            margin-bottom: 30px;
+            margin-bottom: 40px;
             background-color: #fafafa;
-            transition: border-color 0.3s;
         }
         #studentId:focus { border-color: #3498db; background-color: #fff; }
         
-        /* 결과 메시지 영역 극대화 */
+        /* 4. 결과 메시지 영역 (화면의 핵심) */
         #result { 
             margin-top: 20px; 
-            font-size: 3.5rem; /* 결과 글자 크기 더 확대 */
+            font-size: 5rem; /* 결과 글자를 거의 제목만큼 키움 */
             font-weight: 900; 
             min-height: 2em;
-            line-height: 1.3;
+            line-height: 1.4;
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         
-        .pop-effect { transform: scale(1.15); }
-        .sub-text { font-size: 1.5rem; color: #888; display: block; margin-bottom: 10px; font-weight: normal; }
+        .pop-effect { transform: scale(1.1); }
+        .sub-text { font-size: 2rem; color: #888; display: block; margin-bottom: 15px; }
 
-        /* 관리자 모달 스타일 */
+        /* 관리자 모달 */
         #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 10000; }
-        .modal-content { background: white; padding: 40px; border-radius: 30px; width: 85%; max-width: 450px; text-align: center; }
-        .modal-content h2 { font-size: 2rem; margin-top: 0; }
-        .admin-btn { width: 100%; padding: 20px; margin-top: 15px; border-radius: 15px; border: none; background: #2c3e50; color: white; font-size: 1.5rem; cursor: pointer; }
-        #adminPw { width: 100%; padding: 20px; font-size: 1.5rem; border-radius: 15px; border: 1px solid #ddd; box-sizing: border-box; }
+        .modal-content { background: white; padding: 50px; border-radius: 40px; width: 90%; max-width: 600px; text-align: center; }
+        .admin-btn { width: 100%; padding: 25px; margin-top: 20px; border-radius: 20px; border: none; background: #2c3e50; color: white; font-size: 2rem; cursor: pointer; }
+        #adminPw { width: 100%; padding: 25px; font-size: 2rem; border-radius: 20px; border: 1px solid #ddd; }
     </style>
 </head>
 <body onclick="initAudio()">
@@ -67,7 +72,7 @@
         <div class="count-info">남은 인원 : <span id="remainingCount" style="color:#007bff;">0</span>명</div>
         <h1>석식 확인 시스템</h1>
         <input type="text" id="studentId" placeholder="학번 입력" inputmode="numeric" autofocus>
-        <div id="result"><span style="font-size:1.5rem; color:#aaa; font-weight:normal;">대기 중...</span></div>
+        <div id="result"><span style="font-size:2rem; color:#aaa;">대기 중...</span></div>
     </div>
 
     <div id="adminModal">
@@ -80,7 +85,7 @@
             </div>
             <div id="uploadSection" style="display:none;">
                 <h2>명단 업로드</h2>
-                <input type="file" id="excelFile" accept=".xlsx, .xls" style="font-size:1.2rem; margin: 20px 0;">
+                <input type="file" id="excelFile" accept=".xlsx, .xls" style="font-size:1.5rem; margin: 30px 0;">
                 <button class="admin-btn" style="background:#95a5a6" onclick="closeAdmin()">닫기</button>
             </div>
         </div>
