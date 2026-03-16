@@ -13,8 +13,23 @@
         .settings-btn { position: absolute; top: 20px; right: 20px; font-size: 30px; cursor: pointer; background: #f0f0f0; border: 1px solid #ddd; border-radius: 12px; padding: 10px; z-index: 999; }
         .count-info { font-size: 1.2rem; color: #555; margin-bottom: 15px; }
         h1 { margin-bottom: 30px; color: #2c3e50; font-size: 1.8rem; }
-        #studentId { width: 100%; padding: 18px; font-size: 1.6rem; border: 3px solid #eee; border-radius: 15px; text-align: center; box-sizing: border-box; outline: none; }
-        #result { margin-top: 30px; font-size: 1.4rem; font-weight: bold; min-height: 1.5em; }
+        
+        #studentId { width: 100%; padding: 18px; font-size: 1.6rem; border: 3px solid #eee; border-radius: 15px; text-align: center; box-sizing: border-box; outline: none; margin-bottom: 20px; }
+        
+        /* 결과 메시지 스타일 강화 */
+        #result { 
+            margin-top: 10px; 
+            font-size: 2.8rem; /* 글자 크기 대폭 확대 */
+            font-weight: 800; 
+            min-height: 1.8em;
+            line-height: 1.2;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        /* 입력 성공/실패 시 애니메이션 */
+        .pop-effect { transform: scale(1.1); }
+        .sub-text { font-size: 1.1rem; color: #888; display: block; margin-bottom: 5px; }
+
         #adminModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 10000; }
         .modal-content { background: white; padding: 30px; border-radius: 25px; width: 80%; max-width: 350px; text-align: center; }
         .admin-btn { width: 100%; padding: 15px; margin-top: 10px; border-radius: 10px; border: none; background: #2c3e50; color: white; font-size: 1.1rem; cursor: pointer; }
@@ -69,7 +84,6 @@
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        // 요청하신 부드러운 딩동 소리 로직
         function playSound(type) {
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
@@ -80,55 +94,53 @@
             if (type === 'success') {
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
-                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.3); 
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); 
                 gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
             } else {
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(150, audioCtx.currentTime);
                 gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
             }
             osc.start();
-            osc.stop(audioCtx.currentTime + 1);
+            osc.stop(audioCtx.currentTime + 0.5);
         }
 
-        // 남은 인원만 실시간으로 모든 기기에 동기화
         db.ref('students').on('value', (snapshot) => {
             const data = snapshot.val();
             document.getElementById('remainingCount').innerText = data ? Object.keys(data).length : 0;
         });
 
-        // 학번 입력 시 처리 (입력한 기기에서만 소리 발생)
         document.getElementById('studentId').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 const id = this.value.trim();
                 const resultDiv = document.getElementById('result');
                 if(!id) return;
                 
+                // 애니메이션 초기화
+                resultDiv.classList.remove('pop-effect');
+                
                 db.ref('students/' + id).once('value', (snap) => {
+                    // 강제 리플로우 (애니메이션 재발동용)
+                    void resultDiv.offsetWidth; 
+
                     if(snap.exists()) {
-                        // 1. 결과 텍스트 표시
-                        resultDiv.innerText = "✅ " + id + " 확인 완료";
-                        resultDiv.style.color = "#2ecc71";
-                        
-                        // 2. 소리 재생 (이 입력을 처리 중인 기기에서만!)
+                        resultDiv.innerHTML = `<span class="sub-text">확인 완료</span><span style="color:#2ecc71;">✅ ${id}</span>`;
                         playSound('success'); 
-                        
-                        // 3. 서버 데이터 삭제 (다른 기기의 숫자도 자동으로 줄어듦)
                         db.ref('students/' + id).remove();
                     } else {
-                        resultDiv.innerText = "❌ 명단에 없는 학번입니다.";
-                        resultDiv.style.color = "#e74c3c";
+                        resultDiv.innerHTML = `<span class="sub-text" style="color:#e74c3c;">명단 없음</span><span style="color:#e74c3c;">❌ ${id}</span>`;
                         playSound('error'); 
                     }
+                    
+                    resultDiv.classList.add('pop-effect');
                     this.value = '';
                     this.focus();
                 });
             }
         });
 
-        // 관리자 인증 및 업로드
         function openAdmin(e) { e.preventDefault(); document.getElementById('adminModal').style.display = 'flex'; }
         function closeAdmin() { document.getElementById('adminModal').style.display = 'none'; }
         function checkPw() {
